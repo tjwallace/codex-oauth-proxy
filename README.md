@@ -98,6 +98,40 @@ build-time patches, now maintained directly in the source:
 The hardening regressions run with the normal `go test ./...` suite; no special
 build tags or patch application are required.
 
+## Container image
+
+The fork's **Container image** workflow verifies every push to `main` and pull
+request, and publishes successful `main` builds to GHCR for `linux/amd64` and
+`linux/arm64`. It also supports manual runs on `main`. Publishing uses the
+repository's `GITHUB_TOKEN`; no registry password is required.
+
+Each build publishes a commit-specific tag:
+
+```text
+ghcr.io/tjwallace/codex-oauth-proxy:sha-<full-40-character-commit-SHA>
+```
+
+For Kubernetes, use the immutable `ghcr.io/tjwallace/codex-oauth-proxy@sha256:...`
+reference recorded in the publishing job's summary. There is no moving `latest`
+tag, so overlapping builds cannot roll it back to an older commit.
+
+The digest-pinned image contains a static binary and a shell-less distroless
+runtime with CA certificates. It defaults to UID/GID `65532`, `ENV=production`,
+port `9879`, and `--creds-store=xdg`. The workflow also smoke-tests it as UID/GID
+`1234` with a read-only root filesystem and no Linux capabilities.
+
+Set `ADMIN_API_KEY` from a Kubernetes Secret and mount a writable credential PVC at
+`/config`. The default credential path is `/config/codex-oauth-proxy/auth.json`;
+when reusing an existing `/config/auth.json`, pass `--creds-store=xdg` and
+`--creds-path=/config/auth.json` as container arguments. Preserve the refreshed
+file, its `0600` permissions, and its owning UID/GID; do not replace it on normal
+restarts. This workflow does not modify the Kubernetes deployment.
+
+New GHCR packages are private by default. After the first publish, make the
+[package](https://github.com/users/tjwallace/packages/container/package/codex-oauth-proxy)
+public for anonymous cluster pulls, or configure an `imagePullSecret` with a
+classic PAT that has `read:packages`.
+
 ## Endpoints
 
 | Endpoint | Purpose |

@@ -1,0 +1,118 @@
+name: Container image
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  IMAGE: ghcr.io/tjwallace/codex-oauth-proxy
+
+jobs:
+  verify:
+    name: Build and smoke test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Test
+        run: go test -mod=readonly ./...
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: Build both platforms
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          cache-from: type=gha,scope=container
+          cache-to: type=gha,mode=max,scope=container
+
+      - name: Load smoke-test image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          platforms: linux/amd64
+          load: true
+          tags: codex-oauth-proxy:smoke
+
+      - name: Smoke test without OAuth credentials
+        shell: bash
+        run: |
+          container=$(docker run --detach --read-only --user 1234:1234 \
+            --cap-drop ALL --security-opt no-new-privileges:true \
+            --tmpfs /config:rw,noexec,nosuid,uid=1234,gid=1234,mode=0700 \
+            --env ADMIN_API_KEY=smoke-test-only --publish 127.0.0.1::9879 \
+            codex-oauth-proxy:smoke)
+          trap 'docker logs "$container"; docker rm --force "$container" >/dev/null' EXIT
+          address=$(docker port "$container" 9879/tcp)
+          curl --fail --silent --show-error --retry 10 --retry-all-errors \
+            --retry-delay 1 --max-time 2 "http://$address/health" | \
+            jq --exit-status '.status == "ok"'
+          test "$(curl --silent --show-error --max-time 5 --output /dev/null \
+            --write-out '%{http_code}' "http://$address/v1/models")" = 401
+
+  publish:
+    name: Publish to GHCR
+    needs: verify
+    if: github.repository == 'tjwallace/codex-oauth-proxy' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: Log in to GHCR
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and publish
+        id: publish
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ env.IMAGE }}:sha-${{ github.sha }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          cache-from: type=gha,scope=container
+          cache-to: type=gha,mode=max,scope=container
+
+      - name: Record Kubernetes image reference
+        env:
+          IMAGE_DIGEST: ${{ steps.publish.outputs.digest }}
+        run: |
+          {
+            echo '### Container image'
+            echo "Tag: \`$IMAGE:sha-$GITHUB_SHA\`"
+            echo "Kubernetes digest pin: \`$IMAGE@$IMAGE_DIGEST\`"
+          } >> "$GITHUB_STEP_SUMMARY"
