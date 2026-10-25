@@ -80,6 +80,24 @@ codex-oauth-proxy --creds-store=xdg --creds-path=/path/to/auth.json
 codex-oauth-proxy --creds-store=legacy
 ```
 
+## Fork hardening
+
+This fork includes the protections previously applied by `tjwallace/home-ops` as
+build-time patches, now maintained directly in the source:
+
+- Preserve names in prompts, instructions, and tool results, and accept string-form
+  Responses input without discarding it.
+- Restrict **production** logs to an operational-field allowlist, drop unknown fields
+  and malformed records, and disable debug logging. Set `ENV=production` when deploying;
+  development logging is not filtered.
+- Write credentials with mode `0600` using a same-directory atomic rename, so a
+  refresh cannot truncate the live file. Use one writer per OAuth token chain.
+- Normalize and flush successful SSE headers even when upstream omits or mislabels
+  the media type, while preserving upstream error responses.
+
+The hardening regressions run with the normal `go test ./...` suite; no special
+build tags or patch application are required.
+
 ## Endpoints
 
 | Endpoint | Purpose |

@@ -14,9 +14,7 @@ import (
 var namesToReplace = []string{"Zed", "Cline", "Roo", "GitHub Copilot", "Copilot", "Cursor", "Microsoft", "Copilot"}
 
 func replaceNames(input string) string {
-	for _, name := range namesToReplace {
-		input = strings.Replace(input, name, "Codex", -1)
-	}
+	// A gateway must not rewrite names in user prompts or tool results.
 	return input
 }
 
