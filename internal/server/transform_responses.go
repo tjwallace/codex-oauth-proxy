@@ -27,6 +27,12 @@ func transformResponsesRequestBody(body map[string]interface{}, requestedModel s
 	}
 
 	var systemText string
+	// OpenAI Responses accepts input as either a string or an item array.
+	if text, ok := body["input"].(string); ok {
+		body["input"] = []interface{}{map[string]interface{}{
+			"role": "user", "content": text,
+		}}
+	}
 	var allInstructions []interface{}
 	if existingInput, ok := body["input"]; ok {
 		if inSlice, ok := existingInput.([]interface{}); ok {

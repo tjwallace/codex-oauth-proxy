@@ -48,14 +48,14 @@ func TestTransformResponsesRequestBody(t *testing.T) {
 			continue
 		}
 		if item, ok := content[0].(map[string]interface{}); ok {
-			if txt, _ := item["text"].(string); txt == "Hello from Codex" {
+			if txt, _ := item["text"].(string); txt == "Hello from Zed" {
 				found = true
 				break
 			}
 		}
 	}
 	if !found {
-		t.Fatalf("expected to find replaced user text 'Hello from Codex' in input messages; got %v", body["input"])
+		t.Fatalf("expected unchanged user text 'Hello from Zed' in input messages; got %v", body["input"])
 	}
 
 	reasoning, ok := body["reasoning"].(map[string]interface{})

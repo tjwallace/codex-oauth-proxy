@@ -683,7 +683,7 @@ func (s *Server) writeResponse(w http.ResponseWriter, resp *http.Response, statu
 		}
 
 		// Detect streaming responses (handle charset variations)
-		isStreaming := responsesSSE || mediaType == "text/event-stream"
+		isStreaming := responsesSSE || convertSSE || mediaType == "text/event-stream"
 		if isStreaming {
 			w.Header().Del("Content-Length")
 			w.Header().Set("Content-Type", "text/event-stream; charset=utf-8")
