@@ -69,6 +69,7 @@ type ChatCompletionResponse struct {
 	Created int64                  `json:"created"`
 	Model   string                 `json:"model"`
 	Choices []ChatCompletionChoice `json:"choices"`
+	Usage   json.RawMessage        `json:"usage,omitempty"`
 }
 
 // streamingToolCall identifies which call an incremental update belongs to.
