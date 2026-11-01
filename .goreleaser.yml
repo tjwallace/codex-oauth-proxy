@@ -17,7 +17,7 @@ builds:
       - arm64
       - arm
     goarm:
-      - 7
+      - "7"
     ignore:
       - goos: windows
         goarch: arm
@@ -30,7 +30,7 @@ builds:
       - -s -w -buildid=
 
 archives:
-  - format: tar.gz
+  - formats: [tar.gz]
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}"
     wrap_in_directory: false
     files: []
@@ -40,9 +40,11 @@ checksum:
 
 release:
   github:
-    owner: dvcrn
+    owner: tjwallace
     name: codex-oauth-proxy
   replace_existing_artifacts: true
+  # Preserve the release notes already created by Release Please.
+  mode: keep-existing
 
 changelog:
   sort: asc

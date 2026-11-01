@@ -4,9 +4,9 @@ const os = require("os");
 const https = require("https");
 const semver = require("semver");
 
-const DEFAULT_PACKAGE_NAME = "codex-oauth-proxy";
-const DEFAULT_UPDATE_COMMAND = "npm install -g codex-oauth-proxy";
-const CACHE_DIR_NAME = "codex-oauth-proxy";
+const DEFAULT_PACKAGE_NAME = require("./package.json").name;
+const DEFAULT_UPDATE_COMMAND = `npm install -g ${DEFAULT_PACKAGE_NAME}`;
+const CACHE_DIR_NAME = DEFAULT_PACKAGE_NAME.replace(/^@/, "").replace("/", "-");
 
 const UPDATE_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
 const UPDATE_CHECK_TIMEOUT_MS = 1200;

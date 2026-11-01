@@ -24,7 +24,7 @@ mise run test
 
 ### Releasing
 
-See [RELEASE.md](RELEASE.md) for automated container releases and maintainer setup.
+See [RELEASE.md](RELEASE.md) for automated releases and maintainer setup.
 
 ## Architecture
 

@@ -1,10 +1,10 @@
 {
-  "name": "codex-oauth-proxy",
+  "name": "@tjwallace/codex-oauth-proxy",
   "version": "1.1.0",
   "description": "Release package for codex-oauth-proxy",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/dvcrn/codex-oauth-proxy.git",
+    "url": "git+https://github.com/tjwallace/codex-oauth-proxy.git",
     "directory": "npm"
   },
   "files": [

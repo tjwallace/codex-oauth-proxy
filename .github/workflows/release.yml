@@ -1,0 +1,123 @@
+name: Release
+
+on:
+  push:
+    tags: ["[0-9]*.[0-9]*.[0-9]*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  RELEASE_TAG: ${{ github.ref_name }}
+
+jobs:
+  release:
+    name: Publish Go binaries
+    if: github.repository == 'tjwallace/codex-oauth-proxy' && github.event.deleted != true
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout release source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
+          package-manager-cache: false
+
+      - name: Verify release versions
+        run: |
+          node - "$RELEASE_TAG" <<'NODE'
+          const assert = require('node:assert/strict');
+          const tag = process.argv[2];
+          assert.equal(tag.match(/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/)?.[0], tag,
+            'Expected an unprefixed stable X.Y.Z tag');
+          const pkg = require('./npm/package.json');
+          const lock = require('./npm/package-lock.json');
+          const manifest = require('./.release-please-manifest.json');
+          assert.equal(pkg.name, '@tjwallace/codex-oauth-proxy');
+          for (const version of [pkg.version, lock.version, lock.packages?.['']?.version, manifest['.']]) {
+            assert.equal(version, tag, 'Release tag and package versions must match');
+          }
+          NODE
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Test release source
+        run: go test -mod=readonly ./...
+
+      - name: Publish release archives
+        uses: goreleaser/goreleaser-action@a4f02ab5355a589de60d917a659ce617ed19b3de # v7.3.0
+        with:
+          version: v2.19.0
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  npm:
+    name: Publish npm package
+    needs: release
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: npm
+    permissions:
+      contents: read
+      id-token: write
+    defaults:
+      run:
+        working-directory: npm
+    steps:
+      - name: Checkout release source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+
+      - name: Install wrapper dependencies without downloading a binary
+        run: npm ci --ignore-scripts
+
+      - name: Verify release assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/release-assets"
+          gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" \
+            --dir "$RUNNER_TEMP/release-assets" \
+            --pattern 'codex-oauth-proxy_*.tar.gz' --pattern checksums.txt
+          cd "$RUNNER_TEMP/release-assets"
+          sha256sum --check checksums.txt
+
+      - name: Pack and smoke test the npm installer
+        run: |
+          npm pack --ignore-scripts --pack-destination "$RUNNER_TEMP"
+          npm install --prefix "$RUNNER_TEMP/npm-smoke" --no-audit --no-fund \
+            "$RUNNER_TEMP/tjwallace-codex-oauth-proxy-$RELEASE_TAG.tgz"
+          tar --extract --gzip --to-stdout \
+            --file "$RUNNER_TEMP/release-assets/codex-oauth-proxy_${RELEASE_TAG}_linux_amd64.tar.gz" \
+            codex-oauth-proxy | \
+            cmp - "$RUNNER_TEMP/npm-smoke/node_modules/@tjwallace/codex-oauth-proxy/codex-oauth-proxy"
+
+      - name: Publish tested package with npm trusted publishing
+        run: npm publish "$RUNNER_TEMP/tjwallace-codex-oauth-proxy-$RELEASE_TAG.tgz" --provenance --access public

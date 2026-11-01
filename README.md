@@ -30,10 +30,12 @@ You need a ChatGPT account with Codex access and an existing Codex CLI login.
 Install the proxy with npm:
 
 ```bash
-npm install -g codex-oauth-proxy
+npm install -g @tjwallace/codex-oauth-proxy
 ```
 
-Other installation options:
+Prebuilt Go binaries are available in this fork's [GitHub Releases](https://github.com/tjwallace/codex-oauth-proxy/releases).
+
+Other installation options (upstream source):
 
 ```bash
 # mise

@@ -6,7 +6,7 @@ const https = require("https");
 const crypto = require("crypto");
 const { spawnSync } = require("child_process");
 
-const OWNER = "dvcrn";
+const OWNER = "tjwallace";
 const REPO = "codex-oauth-proxy";
 const BIN = "codex-oauth-proxy";
 const VERSION_ENV = "CODEX_PROXY_VERSION";
