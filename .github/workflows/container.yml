@@ -3,6 +3,7 @@ name: Container image
 on:
   push:
     branches: [main]
+    tags: ["[0-9]*.[0-9]*.[0-9]*"]
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -10,12 +11,17 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 env:
   IMAGE: ghcr.io/tjwallace/codex-oauth-proxy
 
 jobs:
   verify:
     name: Build and smoke test
+    if: github.event.deleted != true
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -72,7 +78,10 @@ jobs:
   publish:
     name: Publish to GHCR
     needs: verify
-    if: github.repository == 'tjwallace/codex-oauth-proxy' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    if: >-
+      github.repository == 'tjwallace/codex-oauth-proxy' &&
+      github.event_name != 'pull_request' &&
+      (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/'))
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:
@@ -86,6 +95,16 @@ jobs:
 
       - name: Set up Buildx
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: Generate image metadata
+        id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ${{ env.IMAGE }}
+          flavor: latest=false
+          tags: |
+            type=ref,event=tag
+            type=sha,format=long
 
       - name: Log in to GHCR
         uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
@@ -101,10 +120,8 @@ jobs:
           context: .
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ env.IMAGE }}:sha-${{ github.sha }}
-          labels: |
-            org.opencontainers.image.source=https://github.com/${{ github.repository }}
-            org.opencontainers.image.revision=${{ github.sha }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=container
           cache-to: type=gha,mode=max,scope=container
 

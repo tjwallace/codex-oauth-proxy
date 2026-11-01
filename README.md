@@ -100,16 +100,19 @@ build tags or patch application are required.
 
 ## Container image
 
-The fork's **Container image** workflow verifies every push to `main` and pull
-request, and publishes successful `main` builds to GHCR for `linux/amd64` and
-`linux/arm64`. It also supports manual runs on `main`. Publishing uses the
-repository's `GITHUB_TOKEN`; no registry password is required.
+The fork's **Container image** workflow verifies pushes to `main`, release tags,
+and pull requests, and publishes successful `main` and release-tag builds to GHCR
+for `linux/amd64` and `linux/arm64`. It also supports manual runs on `main`.
+Publishing uses the repository's `GITHUB_TOKEN`; no registry password is required.
 
 Each build publishes a commit-specific tag:
 
 ```text
 ghcr.io/tjwallace/codex-oauth-proxy:sha-<full-40-character-commit-SHA>
 ```
+
+Tagged releases also publish `ghcr.io/tjwallace/codex-oauth-proxy:X.Y.Z`.
+See [RELEASE.md](RELEASE.md) for release automation and maintainer setup.
 
 For Kubernetes, use the immutable `ghcr.io/tjwallace/codex-oauth-proxy@sha256:...`
 reference recorded in the publishing job's summary. There is no moving `latest`

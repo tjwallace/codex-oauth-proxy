@@ -24,7 +24,7 @@ mise run test
 
 ### Releasing
 
-See [RELEASE.md](RELEASE.md) for full step-by-step instructions on cutting and publishing releases across GitHub Releases (GoReleaser), npm, and Docker.
+See [RELEASE.md](RELEASE.md) for automated container releases and maintainer setup.
 
 ## Architecture
 
